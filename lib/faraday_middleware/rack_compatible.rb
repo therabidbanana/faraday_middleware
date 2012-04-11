@@ -10,7 +10,14 @@ module FaradayMiddleware
       # array: [status, headers, body]
       compatible_app = lambda do |env|
         restore_env(env)
-        response = app.call(env)
+        env[:request_headers].delete_if{|k,v| v.nil?}
+        begin
+          warn "Env before failing => #{env[:request_headers].inspect}"
+          response = app.call(env)
+        rescue NoMethodError => e
+          warn "Env failing => #{env[:request_headers].inspect}"
+          raise e
+        end
         [response.status, response.headers, Array(response.body)]
       end
       @rack = rack_handler.new(compatible_app, *args)
@@ -42,9 +49,10 @@ module FaradayMiddleware
 
     def headers_to_rack(env)
       env[:request_headers].each do |name, value|
+        warn "abc, 123"
         name = name.upcase.tr('-', '_')
         name = "HTTP_#{name}" unless NonPrefixedHeaders.include? name
-        env[name] = value
+        env[name] = value unless value.nil?
       end
     end
 
